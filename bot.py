@@ -2,9 +2,34 @@ import os
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from deep_translator import GoogleTranslator
 
-TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
+TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOf"
+
+# قاموس شامل ومباشر للمترجمة الفورية (أضف هنا أي مصطلح لاتيني وطبي تدرسه)
+DIRECT_DICT = {
+    "cardiovascular": {
+        "ar": "قَلْبِيّ وِعَائِيّ (الجهاز القلبي الوعائي)",
+        "system": "جهاز / نظام",
+        "comprises": "يتكون من / يشتمل على",
+        "heart": "القلب",
+        "blood": "الدم",
+        "vessels": "الأوعية",
+        "cardiology": "علم القلب",
+        "medical": "طبي",
+        "sternum": "عظمة القص",
+        "days": "أيام",
+        "early": "مبكرا / مبكرا",
+        "studying": "الدراسة",
+        "night": "الليل",
+        "useless": "عديم الفائدة",
+        "boring": "ممل",
+        "helpful": "مفيد",
+        "concentration": "التركيز",
+        "reading": "قراءة",
+        "books": "كتب",
+        "sleepy": "نعسان"
+    }
+}
 
 # تخزين البطاقات والنصوص لكل مستخدم
 user_flashcards = {}
@@ -85,14 +110,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if data.startswith("w_"):
         word = data.replace("w_", "")
+        word_lower = word.lower()
         
-        # ترجمة فورية تلقائية لأي كلمة (لاتينية أو إنجليزية) باستخدام Google Translator
-        try:
-            translation = GoogleTranslator(source='auto', target='ar').translate(word)
-            if not translation:
-                translation = "مصطلح تخصصي"
-        except Exception:
-            translation = "مصطلح تخصصي"
+        # البحث المباشر في القاموس الطبي المخصص
+        if word_lower in DIRECT_DICT:
+            info = DIRECT_DICT[word_lower]
+            if isinstance(info, dict):
+                translation = info.get("ar", "مصطلح تخصصي")
+            else:
+                translation = info
+        else:
+            translation = f"مصطلح تخصصي: {word}"
         
         # حفظ الترجمة مؤقتاً للزر
         context.user_data[f'trans_{word}'] = translation
