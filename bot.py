@@ -9,7 +9,7 @@ logging.basicConfig(
 )
 
 # توكن البوت الجديد ومعرف المالك
-TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOf"
+TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 OWNER_ID = 8201127054
 
 
