@@ -7,7 +7,7 @@ from deep_translator import GoogleTranslator
 
 TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 
-# القاموس الشامل للمصطلحات الطبية واللاتينية
+# القاموس الشامل والمحدث لجميع المصطلحات الطبية واللاتينية من الملفات الثمانية
 GLOBAL_MEDICAL_DICT = {
     "prescribe": {"ar": "يصف (دواء/علاج)", "en": "To suggest a medicine or treatment"},
     "examine": {"ar": "يفحص / يكشف", "en": "Inspect / Look at a patient"},
@@ -23,8 +23,8 @@ GLOBAL_MEDICAL_DICT = {
     "trachea": {"ar": "القصبة الهوائية", "en": "Windpipe"},
     "uterus": {"ar": "الرحم", "en": "Womb"},
     "vertebral column": {"ar": "العمود الفقري", "en": "Spine"},
-    "acute": {"ar": "حاد ⟵ مزمن", "en": "Acute ⟵ Chronic"},
-    "benign": {"ar": "حميد ⟵ خبيث", "en": "Benign ⟵ Malignant"},
+    "acute": {"ar": "حاد (مقابل مزمن)", "en": "Acute (opp. chronic)"},
+    "benign": {"ar": "حميد (مقابل خبيث)", "en": "Benign (opp. malignant)"},
     "anticoagulant": {"ar": "مضاد تخثر / مسيل للدم", "en": "Blood thinner / prevents clots"},
     "antiseptic": {"ar": "مطهر", "en": "Prevents infection / kills bacteria"},
     "aspirin": {"ar": "أسبرين (مسكن/خافض حرارة)", "en": "Pain reliever & reduces fever"},
@@ -43,19 +43,27 @@ GLOBAL_MEDICAL_DICT = {
 user_flashcards = {}
 user_last_texts = {}
 
+def get_main_menu_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("📚 عرض جميع المصطلحات الطبية", callback_data="menu_all_terms")],
+        [InlineKeyboardButton("🧠 عرض بطاقات الاستذكار", callback_data="menu_flashcards")],
+        [InlineKeyboardButton("🎯 بدء اختبار الـ Quiz التفاعلي", callback_data="menu_quiz")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "مرحباً يا دكتور! 🩺📚\n\n"
-        "النظام التفاعلي والاختبارات جاهزة الآن:\n\n"
-        "• أرسل أي **نص أو شيت** لتوليد أزرار القراءة والترجمة.\n"
-        "• `/review` لعرض بطاقات الاستذكار.\n"
-        "• `/quiz` لبدء **الاختبار التفاعلي (اختيار من متعدد)**.\n"
-        "• **لإضافة مصطلحات دفعة واحدة:**\n"
-        "أرسل بالصيغة:\n"
+        "🩺 **أهلاً بك يا دكتور في نظامك الطبي الذكي** 📚\n\n"
+        "تم تصميم هذه الواجهة بعناية لتناسب دراستك واختباراتك بكفاءة عالية.\n"
+        "اختر ما تحب من القائمة أدناه، أو أرسل أي نص/شيت للترجمة الفورية:\n\n"
+        "💡 *لإضافة دفعة مصطلحات جديدة بالنسخ واللصق:* أرسل هكذا:\n"
         "`add:`\n"
-        "1. Term - المعنى بالعربي والانجليزي"
+        "`1. Term - المعنى`"
     )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown")
+    if update.message:
+        await update.message.reply_text(welcome_text, reply_markup=get_main_menu_keyboard(), parse_mode="Markdown")
+    elif update.callback_query:
+        await update.callback_query.message.edit_text(welcome_text, reply_markup=get_main_menu_keyboard(), parse_mode="Markdown")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_content = update.message.text
@@ -87,10 +95,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     added_count += 1
                     
             if added_count > 0:
-                await update.message.reply_text(f"✅ تمت إضافة وترتيب {added_count} بطاقة بنجاح إلى جدول استذكارك!")
+                await update.message.reply_text(f"✅ **تمت إضافة وترتيب {added_count} بطاقة بنجاح لجدول الاستذكار!**", parse_mode="Markdown", reply_markup=get_main_menu_keyboard())
                 return
         except Exception:
-            await update.message.reply_text("❌ خطأ في الصيغة. استخدم النمط: `1. المصطلح - المعنى`")
+            await update.message.reply_text("❌ خطأ في الصيغة. استخدم النمط: `1. المصطلح - المعنى`", parse_mode="Markdown")
             return
 
     user_last_texts[user_id] = text_content
@@ -118,47 +126,70 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await update.message.reply_text(
             f"📄 **الجزء ({part_num}) من النص الطبي:**",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode="Markdown"
         )
 
-async def review_flashcards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
+async def review_flashcards_action(query, user_id):
     cards = user_flashcards.get(user_id, [])
     
+    review_text = "🧠 **بطاقات الاستذكار الخاصة بك:**\n\n"
     if not cards:
-        await update.message.reply_text("📭 قائمة الاستذكار فارغة. تصفح النصوص أو أضف مصطلحات جديدة.")
-        return
-        
-    review_text = "🧠 **بطاقات الاستذكار الطبية:\n\n"
-    for idx, card in enumerate(cards, 1):
-        review_text += f"{idx}. 📌 ** ⬅️ {card['definition']}\n"
-        
-    if len(review_text) > 4000:
-        for x in range(0, len(review_text), 4000):
-            await update.message.reply_text(review_text[x:x+4000])
+        review_text += "_قائمة البطاقات المضافة فارغة حالياً. يمكنك إضافة مصطلحات جديدة بالنسخ واللصق._\n\n"
     else:
-        await update.message.reply_text(review_text, parse_mode="Markdown")
-
-async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
+        for idx, card in enumerate(cards, 1):
+            review_text += f"🔹 **{idx}. {card['term'].upper()}**\n   📌 *{card['definition']}*\n\n"
+            
+    review_text += "━━━━━━━━━━━━━━━━━━━\n📚 **قائمة القاموس الشامل (الملفات الـ 8):**\n\n"
+    for term, info in list(GLOBAL_MEDICAL_DICT.items())[:15]: # عرض عينة منظمة
+        review_text += f"▪️ **{term.upper()}**\n   🇸🇦 {info['ar']}\n   🇬🇧 {info['en']}\n\n"
+        
+    keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_menu")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    all_pool = list(GLOBAL_MEDICAL_DICT.items())
+    await query.message.edit_text(review_text, reply_markup=reply_markup, parse_mode="Markdown")
+
+async def show_all_terms_action(query):
+    text = "📚 **القاموس الطبي الشامل (الملفات الثمانية):**\n\n"
+    for term, info in GLOBAL_MEDICAL_DICT.items():
+        text += f"🔹 **{term.upper()}**\n   🇸🇦 {info['ar']}\n   🇬🇧 {info['en']}\n\n"
+        
+    keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_menu")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if len(text) > 4000:
+        await query.message.edit_text(text[:4000], parse_mode="Markdown")
+        await query.message.reply_text("... تابع القاموس ...", reply_markup=reply_markup)
+    else:
+        await query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+async def start_quiz_action(query, user_id, context):
+    quiz_pool = []
+    for term, info in GLOBAL_MEDICAL_DICT.items():
+        quiz_pool.append({
+            "term": term, 
+            "def": f"🇸🇦 {info['ar']} | 🇬🇧 {info['en']}"
+        })
+        
     if user_id in user_flashcards:
         for c in user_flashcards[user_id]:
-            all_pool.append((c['term'], {"ar": c['definition'], "en": c['definition']}))
+            quiz_pool.append({
+                "term": c['term'], 
+                "def": c['definition']
+            })
             
-    if len(all_pool) < 4:
-        await update.message.reply_text("⚠️ يلزم وجود 4 مصطلحات على الأقل لبدء اختبار الاختيار من متعدد. تصفح بعض الشيتات أولاً.")
+    if len(quiz_pool) < 4:
+        keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_menu")]]
+        await query.message.edit_text("⚠️ **عذراً، يلزم توفر 4 مصطلحات على الأقل لبدء الاختبار.**", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
         
-    correct_item = random.choice(all_pool)
-    correct_term = correct_item[0]
-    correct_def = correct_item[1]['ar']
+    correct_item = random.choice(quiz_pool)
+    correct_term = correct_item['term']
+    correct_def = correct_item['def']
     
-    # حفظ الإجابة الصحيحة في سياق المستخدم لنتمكن من عرضها عند الخطأ
     context.user_data['current_correct_def'] = correct_def
     
-    wrong_pool = [item[1]['ar'] for item in all_pool if item[0] != correct_term]
+    wrong_pool = [item['def'] for item in quiz_pool if item['term'] != correct_term]
     wrong_choices = random.sample(wrong_pool, min(3, len(wrong_pool)))
     
     choices = wrong_choices + [correct_def]
@@ -169,12 +200,15 @@ async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_correct = "1" if choice == correct_def else "0"
         keyboard.append([InlineKeyboardButton(choice, callback_data=f"q_{is_correct}")])
         
+    keyboard.append([InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_menu")])
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
-        f"🎯 **اختبار المصطلحات الطبية (التفاعلي):**\n\nما هو المعنى الصحيح للمصطلح التالي؟\n📌 **{correct_term.upper()}**",
-        reply_markup=reply_markup
+    quiz_text = (
+        f"🎯 **اختبار المصطلحات الطبية التفاعلي**\n\n"
+        f"ما هو المعنى الصحيح والدقيق للمصطلح الآتي؟\n\n"
+        f"📌 **{correct_term.upper()}**"
     )
+    await query.message.edit_text(quiz_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -183,18 +217,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     user_id = query.from_user.id
     
-    if data.startswith("w_"):
+    if data == "menu_all_terms":
+        await show_all_terms_action(query)
+    elif data == "menu_flashcards":
+        await review_flashcards_action(query, user_id)
+    elif data == "menu_quiz":
+        await start_quiz_action(query, user_id, context)
+    elif data == "back_to_menu":
+        await start(update, context)
+    elif data.startswith("w_"):
         word = data.replace("w_", "")
         word_lower = word.lower()
         
         if word_lower in GLOBAL_MEDICAL_DICT:
             info = GLOBAL_MEDICAL_DICT[word_lower]
-            translation = f"العربي: {info['ar']} | الإنجليزي: {info['en']}"
+            translation = f"🇸🇦 {info['ar']}\n🇬🇧 {info['en']}"
         else:
             try:
                 trans_ar = GoogleTranslator(source='auto', target='ar').translate(word)
                 trans_en = GoogleTranslator(source='auto', target='en').translate(word)
-                translation = f"العربي: {trans_ar} | الإنجليزي: {trans_en}"
+                translation = f"🇸🇦 {trans_ar}\n🇬🇧 {trans_en}"
             except Exception:
                 translation = f"المصطلح: {word}"
         
@@ -202,13 +244,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = [
             [
-                InlineKeyboardButton("⭐ إضافة إلى الاستذكار", callback_data=f"save_{word}"),
-                InlineKeyboardButton("📖 العودة", callback_data="back_to_read")
+                InlineKeyboardButton("⭐ إضافة للاستذكار", callback_data=f"save_{word}"),
+                InlineKeyboardButton("📖 العودة", callback_data="back_to_menu")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        msg = f"📌 **{word}**\n📋 {translation}"
-        await query.message.reply_text(msg, reply_markup=reply_markup)
+        msg = f"📌 **{word.upper()}**\n\n{translation}"
+        await query.message.reply_text(msg, reply_markup=reply_markup, parse_mode="Markdown")
         
     elif data.startswith("save_"):
         term = data.replace("save_", "")
@@ -220,42 +262,41 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not any(card['term'].lower() == term.lower() for card in user_flashcards[user_id]):
             user_flashcards[user_id].append({"term": term, "definition": definition})
             await query.edit_message_reply_markup(reply_markup=None)
-            await query.message.reply_text(f"✅ تمت إضافة البطاقة بنجاح:\n📌 **{term}**\n└ {definition}")
+            await query.message.reply_text(f"✅ **تمت إضافة البطاقة بنجاح:**\n\n📌 **{term.upper()}**\n{definition}", parse_mode="Markdown", reply_markup=get_main_menu_keyboard())
         else:
             await query.answer("هذه الكلمة موجودة مسبقاً في بطاقاتك!", show_alert=True)
             
-    elif data == "back_to_read":
-        last_text = user_last_texts.get(user_id)
-        await query.edit_message_reply_markup(reply_markup=None)
-        if last_text:
-            await query.message.reply_text(f"📄 **العودة للنص:**\n\n{last_text}")
-        else:
-            await query.message.reply_text("أرسل النص من جديد لمتابعة القراءة.")
-            
     elif data.startswith("q_"):
         status = data.replace("q_", "")
-        correct_answer = context.user_data.get('current_correct_def', 'غير متوفرة')
-        await query.edit_message_reply_markup(reply_markup=None)
+        correct_answer = context.user_data.get('current_correct_def', 'معلومة متوفرة في القاموس الشامل')
+        
+        keyboard = [
+            [InlineKeyboardButton("🔄 سؤال آخر (Quiz)", callback_data="menu_quiz")],
+            [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
         if status == "1":
-            await query.message.reply_text("✅ **إجابة صحيحة بامتياز يا دكتور! كفو 🩺🚀**\n\nأرسل `/quiz` لاختبار آخر.")
+            feedback_text = "✅ **إجابة صحيحة بامتياز يا دكتور! كفو 🩺🚀**"
+            await query.message.edit_text(feedback_text, reply_markup=reply_markup, parse_mode="Markdown")
         else:
-            await query.message.reply_text(
+            feedback_text = (
                 f"❌ **إجابة خاطئة!**\n\n"
-                f"💡 **الإجابة الصحيحة هي:** `{correct_answer}`\n\n"
-                f"أرسل `/quiz` لسؤال جديد ومحاولة أخرى."
+                f"💡 **الإجابة الصحيحة الدقيقة هي:**\n"
+                f"`{correct_answer}`"
             )
+            await query.message.edit_text(feedback_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("review", review_flashcards))
-    application.add_handler(CommandHandler("quiz", start_quiz))
+    application.add_handler(CommandHandler("review", lambda u, c: review_flashcards_action(u.callback_query if u.callback_query else u, u.message.from_user.id if u.message else u.callback_query.from_user.id)))
+    application.add_handler(CommandHandler("quiz", lambda u, c: start_quiz_action(u.callback_query if u.callback_query else u, u.message.from_user.id if u.message else u.callback_query.from_user.id, c)))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     application.add_handler(CallbackQueryHandler(button_callback))
 
-    print("Interactive Medical Quiz Bot is running...")
+    print("Professional Medical Bot is running...")
     application.run_polling()
 
 if __name__ == "__main__":
