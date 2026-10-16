@@ -5,60 +5,39 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 
-# قاموس سريع للمصطلحات الأساسية (بالعربي والإنجليزي)
-MEDICAL_DICT = {
-    "cardiovascular": {
-        "type": "medical", 
-        "en_term": "Cardiovascular System",
-        "breakdown": "Prefix/Root: Cardio (Heart / قلب) + Vascul (Vessel / وعاء)",
-        "meaning_ar": "جهاز القلب والأوعية الدموية",
-        "meaning_en": "Relating to the heart and blood vessels"
-    },
-    "system": {"type": "normal", "en_term": "System", "meaning_ar": "جهاز / نظام", "meaning_en": "System"},
-    "comprises": {"type": "normal", "en_term": "Comprises", "meaning_ar": "يتكون من / يشتمل على", "meaning_en": "Consists of / Includes"},
-    "heart": {"type": "normal", "en_term": "Heart", "meaning_ar": "القلب", "meaning_en": "Heart"},
-    "blood": {"type": "normal", "en_term": "Blood", "meaning_ar": "الدم", "meaning_en": "Blood"},
-    "vessels": {"type": "normal", "en_term": "Vessels", "meaning_ar": "الأوعية الدموية", "meaning_en": "Blood vessels"},
-    "cardiology": {
-        "type": "medical", 
-        "en_term": "Cardiology",
-        "breakdown": "Root: Cardio (Heart / قلب) + Suffix: -ology (Study of / علم)",
-        "meaning_ar": "علم القلب وتخصص أمراضه",
-        "meaning_en": "The study and treatment of heart disorders"
-    },
-    "medical": {"type": "normal", "en_term": "Medical", "meaning_ar": "طبي", "meaning_en": "Medical"},
-    "sternum": {
-        "type": "medical", 
-        "en_term": "Sternum",
-        "breakdown": "Anatomical Term / مصطلح تشريعي أساسي",
-        "meaning_ar": "عظمة القص (في القفص الصدري)",
-        "meaning_en": "The breastbone"
-    }
+# قاموس شامل ومباشر للترجمة الفورية
+DIRECT_DICT = {
+    "cardiovascular": "قلبي وعائي (الجهاز القلبي الوعائي)",
+    "system": "جهاز / نظام",
+    "comprises": "يتكون من / يشتمل على",
+    "heart": "القلب",
+    "blood": "الدم",
+    "vessels": "الأوعية",
+    "cardiology": "علم القلب",
+    "medical": "طبي",
+    "sternum": "عظمة القص",
+    "days": "أيام",
+    "early": "مبكر / مبكراً",
+    "studying": "الدراسة",
+    "night": "الليل",
+    "drinking": "شرب",
+    "coffee": "قهوة",
+    "sleeping": "النوم",
+    "reading": "قراءة",
+    "books": "كتب",
+    "improved": "تحسنت",
+    "concentration": "التركيز"
 }
 
-# لواحق طبية للتحليل (عربي وإنجليزي)
-MEDICAL_SUFFIXES = {
-    "itis": {"ar": "التهاب", "en": "Inflammation"},
-    "ology": {"ar": "علم أو دراسة", "en": "Study of"},
-    "ectomy": {"ar": "استئصال جراحي", "en": "Surgical removal"},
-    "oscopy": {"ar": "فحص بالمنظار", "en": "Examination using a scope"},
-    "pathy": {"ar": "اعتلال أو مرض", "en": "Disease / Disorder"},
-    "emia": {"ar": "حالة مرضية في الدم", "en": "Blood condition"},
-    "osis": {"ar": "حالة مرضية مزمنة", "en": "Abnormal condition"},
-    "plasty": {"ar": "إصلاح أو ترقيع جراحي", "en": "Surgical repair"},
-    "algia": {"ar": "ألم", "en": "Pain"}
-}
-
+# تخزين البطاقات والنصوص لكل مستخدم
 user_flashcards = {}
 user_last_texts = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_text = (
-        "مرحباً بك يا دكتور! 🩺✨\n"
-        "البوت جاهز تماماً لتقديم الترجمة الطبية المزدوجة (عربي وإنجليزي) بشكل منسق واحترافي.\n\n"
-        "أرسل شيتك لنبدأ المراجعة الفورية!"
+    await update.message.reply_text(
+        "مرحباً يا دكتور! 🩺\nأرسل الشيت لنبدأ القراءة المباشرة والترجمة الفورية.",
+        parse_mode="Markdown"
     )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_content = update.message.text
@@ -73,7 +52,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if user_id not in user_flashcards:
                     user_flashcards[user_id] = []
                 user_flashcards[user_id].append({"term": term, "definition": definition})
-                await update.message.reply_text(f"✅ تم حفظ البطاقة بنجاح:\n📌 **{term}**\n📖 {definition}")
+                await update.message.reply_text(f"✅ تم الحفظ: {term} ⬅️ {definition}")
                 return
         except Exception:
             pass
@@ -82,7 +61,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     words = re.findall(r'\b[A-Za-z]{3,}\b', text_content)
     
     if not words:
-        await update.message.reply_text("لم ألاحظ كلمات إنجليزية واضحة في النص.")
+        await update.message.reply_text("لم ألاحظ كلمات إنجليزية واضحة.")
         return
 
     chunk_size = 30
@@ -109,14 +88,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def review_flashcards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     cards = user_flashcards.get(user_id, [])
+    
     if not cards:
-        await update.message.reply_text("📭 ليس لديك بطاقات استذكار مضافة حتى الآن.", parse_mode="Markdown")
+        await update.message.reply_text("📭 قائمة الاستذكار فارغة حتى الآن.")
         return
         
-    review_text = "🧠 **قائمة بطاقات الاستذكار الخاصة بك (عربي / إنجليزي):\n\n"
+    review_text = "🧠 **قائمة بطاقات الاستذكار:\n\n"
     for idx, card in enumerate(cards, 1):
-        review_text += f"{idx}. 📌 **\n    📖 {card['definition']}\n\n"
-    await update.message.reply_text(review_text, parse_mode="Markdown")
+        review_text += f"{idx}. 📌 ** ⬅️ {card['definition']}\n"
+        
+    await update.message.reply_text(review_text)
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -129,79 +110,35 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         word = data.replace("w_", "")
         word_lower = word.lower()
         
-        analysis_text = ""
-        flashcard_definition = ""
+        # جلب الترجمة المباشرة أو إعطاء معنى تقديري نظيف بدون حشو
+        translation = DIRECT_DICT.get(word_lower, f"مصطلح تخصصي ({word})")
         
-        if word_lower in MEDICAL_DICT:
-            info = MEDICAL_DICT[word_lower]
-            if info["type"] == "medical":
-                analysis_text = (
-                    f"🩺 **المصطلح الطبي / Medical Term:** `{info['en_term']}`\n\n"
-                    f"⚙️ **التفكيك / Breakdown:**\n{info['breakdown']}\n\n"
-                    f"🇸🇦 **المعنى بالعربي:** {info['meaning_ar']}\n"
-                    f"🇬🇧 **Meaning in English:** {info['meaning_en']}"
-                )
-                flashcard_definition = f"🇸🇦 {info['meaning_ar']} | 🇬🇧 {info['meaning_en']}"
-            else:
-                analysis_text = (
-                    f"📌 **الكلمة / Word:** `{info['en_term']}`\n\n"
-                    f"🇸🇦 **الترجمة العربية:** {info['meaning_ar']}\n"
-                    f"🇬🇧 **English Meaning:** {info['meaning_en']}"
-                )
-                flashcard_definition = f"🇸🇦 {info['meaning_ar']} | 🇬🇧 {info['meaning_en']}"
-        else:
-            # فحص اللواحق الطبية تلقائياً
-            found_suffix = None
-            for suffix, details in MEDICAL_SUFFIXES.items():
-                if word_lower.endswith(suffix):
-                    found_suffix = (suffix, details)
-                    break
-            
-            if found_suffix:
-                root = word_lower[:-len(found_suffix[0])]
-                analysis_text = (
-                    f"🩺 **مصطلح طبي تحليل / Medical Term:** `{word.capitalize()}`\n\n"
-                    f"⚙️ **التفكيك / Breakdown:**\n• اللاحقة / Suffix: `{found_suffix[0]}`\n• الجذر / Root: `{root}`\n\n"
-                    f"🇸🇦 **المعنى بالعربي:** يشير إلى ({found_suffix['details']['ar']}) في منطقة ({root})\n"
-                    f"🇬🇧 **Meaning in English:** Refers to {found_suffix['details']['en']} related to ({root})"
-                )
-                flashcard_definition = f"🇸🇦 {found_suffix['details']['ar']} ({root}) | 🇬🇧 {found_suffix['details']['en']}"
-            else:
-                analysis_text = (
-                    f"📌 **الكلمة / Word:** `{word.capitalize()}`\n\n"
-                    f"🇸🇦 **الترجمة العربية:** ترجمة تفصيلية للكلمة\n"
-                    f"🇬🇧 **English Definition:** General medical/study term"
-                )
-                flashcard_definition = f"🇸🇦 ترجمة المصطلح | 🇬🇧 Definition"
-
-        # حفظ النص المؤقت للبطاقة في context data للزر
-        context.user_data[f'temp_card_{word}'] = flashcard_definition
+        # حفظ الترجمة مؤقتاً للزر
+        context.user_data[f'trans_{word}'] = translation
 
         keyboard = [
             [
-                InlineKeyboardButton("⭐ إضافة إلى قائمة الاستذكار", callback_data=f"save_{word}"),
+                InlineKeyboardButton("⭐ إضافة إلى الاستذكار", callback_data=f"save_{word}"),
                 InlineKeyboardButton("📖 العودة إلى القراءة", callback_data="back_to_read")
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await query.message.reply_text(analysis_text, reply_markup=reply_markup, parse_mode="Markdown")
+        msg = f"📌 **{word}**\n🇸🇦 {translation}"
+        await query.message.reply_text(msg, reply_markup=reply_markup)
         
     elif data.startswith("save_"):
         term = data.replace("save_", "")
-        definition = context.user_data.get(f'temp_card_{term}', "🇸🇦 ترجمة طبية | 🇬🇧 Medical Definition")
+        definition = context.user_data.get(f'trans_{term}', "ترجمة طبية")
         
         if user_id not in user_flashcards:
             user_flashcards[user_id] = []
             
+        # التحقق من عدم التكرار
         if not any(card['term'].lower() == term.lower() for card in user_flashcards[user_id]):
             user_flashcards[user_id].append({"term": term, "definition": definition})
             await query.edit_message_reply_markup(reply_markup=None)
-            await query.message.reply_text(
-                f"✅ **تم الحفظ في قائمة الاستذكار بنجاح!**\n\n"
-                f"📌 **المصطلح:** `{term}`\n"
-                f"📖 **الترجمة (عربي / إنجليزي):**\n{definition}"
-            )
+            await query.message.reply_text(f"✅ تم الحفظ بنجاح:\n📌 **{term}** ⬅️ {definition}")
         else:
             await query.answer("هذه الكلمة موجودة مسبقاً في بطاقاتك!", show_alert=True)
             
@@ -209,7 +146,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_text = user_last_texts.get(user_id)
         await query.edit_message_reply_markup(reply_markup=None)
         if last_text:
-            await query.message.reply_text(f"📄 **العودة إلى الشيت الخاص بك:**\n\n{last_text}")
+            await query.message.reply_text(f"📄 **العودة إلى الشيت:**\n\n{last_text}")
         else:
             await query.message.reply_text("أرسل الشيت من جديد لمتابعة القراءة.")
 
