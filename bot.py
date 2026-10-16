@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from deep_translator import GoogleTranslator
 
-TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOf"
+TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 
 # القاموس الشامل للمصطلحات الطبية واللاتينية
 GLOBAL_MEDICAL_DICT = {
