@@ -6,35 +6,45 @@ from deep_translator import GoogleTranslator
 
 TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 
-# تخزين البطاقات التعليمية لكل مستخدم
 user_flashcards = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "مرحباً بك يا دكتور! 🩺✨\n"
-        "البوت جاهز لمساعدتك في مراجعة الشيتات وامتحانك غداً.\n"
-        "أرسل لي أي نص أو شيت طبي، وسأعطيك أزراراً لكل كلمة لترجمتها وحفظها فوراً!"
+        "أرسل لي النص أو الشيت، وسأعرضه لك كاملاً بحيث تكون **كل كلمة زراً خاصاً بها** في مكانها الصحيح لتضغط عليها فوراً!"
     )
     await update.message.reply_text(welcome_text)
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_content = update.message.text
     
-    # استخراج الكلمات الفريدة من النص
+    # استخراج الكلمات من النص مع الحفاظ على ترتيبها
     words = re.findall(r'\b[A-Za-z]{3,}\b', text_content)
-    unique_words = list(set([w.lower() for w in words]))[:15]  # أخذ أول 15 كلمة لسرعة وسلاسة الاستجابة
-
-    if not unique_words:
+    
+    if not words:
         await update.message.reply_text("لم ألاحظ كلمات إنجليزية واضحة في النص.")
         return
 
+    # بناء مصفوفة أزرار (شبكة) تشبه شكل النص، بحيث كل أفقياً عدة كلمات بجانب بعضها
     keyboard = []
-    for word in unique_words:
-        keyboard.append([InlineKeyboardButton(f"🔍 ترجمة وعرض: {word}", callback_data=f"tr_{word}")])
+    row = []
+    
+    for i, word in enumerate(words[:30]):  # عرض حتى 30 كلمة لكي لا يصبح الزر طويلاً جداً
+        # جعل كل كلمة زراً مستقلاً بذاته
+        row.append(InlineKeyboardButton(word, callback_data=f"w_{word}"))
+        
+        # كل 3 أو 4 كلمات نضعها في سطر واحد (مربعات بجانب بعضها)
+        if len(row) == 3:
+            keyboard.append(row)
+            row = []
+            
+    if row:  # إضافة البقية إن وجدت
+        keyboard.append(row)
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
-        "📄 **تم تحليل النص بنجاح!**\nاضغط على أي كلمة أدناه لترجمتها وعرض بطاقتها:",
+        "📄 **إليك الشيت كأزرار تفاعلية:**\nاضغط على أي كلمة في مكانها لتظهر لك ترجمتها فوراً:",
         reply_markup=reply_markup
     )
 
@@ -43,40 +53,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if data.startswith("tr_"):
-        word = data.replace("tr_", "")
+    if data.startswith("w_"):
+        word = data.replace("w_", "")
         
         try:
-            # ترجمة فورية لأي كلمة في العالم عبر Google Translator
             translation_ar = GoogleTranslator(source='auto', target='ar').translate(word)
-            translation_en = f"Medical or general term: {word}"
         except Exception:
             translation_ar = "تعذر الترجمة مؤقتاً"
-            translation_en = word
-
-        save_keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⭐ حفظ في قائمة الاستذكار (Flashcards)", callback_data=f"save_{word}")]
-        ])
-        
+            
         msg = (
-            f"📌 **بطاقة المراجعة:**\n\n"
-            f"🔹 **الوجه الأول (المصطلح/الكلمة):** `{word.capitalize()}`\n"
-            f"🔸 **الوجه الثاني (الإنجليزي):** {translation_en}\n"
-            f"🔸 **الوجه الثاني (العربي):** {translation_ar}"
+            f"📌 **الكلمة:** `{word.capitalize()}`\n"
+            f"🔹 **الترجمة العربية:** {translation_ar}"
         )
-        await query.message.reply_text(msg, reply_markup=save_keyboard)
         
-    elif data.startswith("save_"):
-        word = data.replace("save_", "")
-        user_id = query.from_user.id
-        
-        if user_id not in user_flashcards:
-            user_flashcards[user_id] = []
-            
-        if word not in user_flashcards[user_id]:
-            user_flashcards[user_id].append(word)
-            
-        await update.effective_message.reply_text("✅ **تمت إضافة الكلمة إلى بطاقات الاستذكار بنجاح!** بالتوفيق في الامتحان!")
+        # إرسال الترجمة في رسالة تحت الأزرار مباشرة دون أن تغادر النص
+        await query.message.reply_text(msg)
 
 def main():
     application = Application.builder().token(TOKEN).build()
