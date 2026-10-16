@@ -3,78 +3,71 @@ import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
-# استبدل هذا التوكن بالتوكن الخاص بك أو اتركه كما هو إذا كان مخزناً
 TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
 
-# قائمة مؤقتة لتخزين البطاقات التعليمية (Flashcards) لكل مستخدم
+# تخزين البطاقات التعليمية لكل مستخدم
 user_flashcards = {}
 
-# بوادئ ولواحق طبية شائعة للتمييز الذكي بين الكلمات العادية والمصطلحات الطبية
-MEDICAL_SUFFIXES = ['itis', 'ology', 'ectomy', 'oscopy', 'pathy', 'emia', 'plasty', 'itis', 'osis', 'iasis']
-MEDICAL_PREFIXES = ['cardio', 'gastro', 'neuro', 'nephro', 'hepa', 'derm', 'oste', 'arthr', 'pneum', 'hem']
+# بوادئ ولواحق طبية لاتينية/يونانية للتمييز الذكي
+MEDICAL_SUFFIXES = ['itis', 'ology', 'ectomy', 'oscopy', 'pathy', 'emia', 'plasty', 'osis', 'iasis', 'metry', 'graphy', 'gram']
+MEDICAL_PREFIXES = ['cardio', 'gastro', 'neuro', 'nephro', 'hepa', 'derm', 'oste', 'arthr', 'pneum', 'hem', 'myo', 'cyst', 'rhin', 'psych', 'arteri', 'ven']
 
 def is_medical_term(word):
     word_lower = word.lower()
-    # التحقق مما إذا كانت الكلمة تحتوي على لاحقة أو بادئة طبية أو طولة تتجاوز 5 أحرف ذات طابع لاتيني
     if any(word_lower.endswith(suf) for suf in MEDICAL_SUFFIXES):
         return True
     if any(word_lower.startswith(pref) for pref in MEDICAL_PREFIXES):
         return True
     return False
 
-# قاموس تجريبي لترجمة وشرح المصطلحات الطبية (يمكن ربطه لاحقاً بـ AI أو قاعدة بيانات)
-MEDICAL_DICTIONARY = {
-    "cardiology": {"en": "The study of the heart and its functions.", "ar": "علم القلب وأمراضه"},
-    "gastroenteritis": {"en": "Inflammation of the stomach and intestines.", "ar": "التهاب المعدة والأمعاء"},
-    "neurology": {"en": "The branch of medicine concerned with the nervous system.", "ar": "علم الأعصاب"},
-    "dermatology": {"en": "The branch of medicine dealing with the skin.", "ar": "طب الجلدية"},
-    "pneumonia": {"en": "Lung infection causing inflammation in air sacs.", "ar": "التهاب رئوي"}
+# قاعدة بيانات موسعة للمصطلحات الطبية والكلمات العادية
+DICTIONARY = {
+    # مصطلحات طبية / لاتينية
+    "cardiology": {"type": "medical", "latin": "Cardiologia", "en": "The study of the heart and its functions.", "ar": "علم القلب وأمراضه"},
+    "gastroenteritis": {"type": "medical", "latin": "Gastroenteritis", "en": "Inflammation of the stomach and intestines.", "ar": "التهاب المعدة والأمعاء"},
+    "neurology": {"type": "medical", "latin": "Neurologia", "en": "Branch of medicine dealing with the nervous system.", "ar": "علم الأعصاب"},
+    "atherosclerosis": {"type": "medical", "latin": "Atherosclerosis", "en": "Build-up of fats in artery walls.", "ar": "تصلب الشرايين"},
+    "hypertension": {"type": "medical", "latin": "Hypertensio", "en": "High blood pressure.", "ar": "ارتفاع ضغط الدم"},
+    "myocarditis": {"type": "medical", "latin": "Myocarditis", "en": "Inflammation of the heart muscle.", "ar": "التهاب عضلة القلب"},
+    
+    # كلمات إنجليزية عامة (مثال توضيحي للترجمة العامة)
+    "comprises": {"type": "general", "ar": "يتكون من / يشتمل على"},
+    "vessels": {"type": "general", "ar": "أوعية (دموية)"},
+    "disorders": {"type": "general", "ar": "اضطرابات / أمراض"},
+    "common": {"type": "general", "ar": "شائع / متعارف عليه"}
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
-        "مرحباً بك أيها الطبيب المتميز! 🩺✨\n\n"
-        "أرسل لي أي ملف نصي أو قم بلصق النص الطبي وسأقوم بـ:\n"
-        "1. استخراج النص بالكامل.\n"
-        "2. فلترة المصطلحات الطبية بدقة.\n"
-        "3. إعطاؤك خيار حفظها في قائمة الاستذكار (Flashcards) بالترتيب المطلوب (المصطلح | الإنجليزية | العربية)."
+        "مرحباً بك يا دكتور! 🩺✨\n\n"
+        "هذا البوت مصمم خصيصاً لمساعدتك في:\n"
+        "1. **الترجمة الفورية** لأي كلمة إنجليزية في الشيتات.\n"
+        "2. **التعرف الذكي على المصطلحات الطبية** واللاتينية وتحويلها إلى بطاقات استذكار (Flashcards) دقيقة (المصطلح | المعنى الإنجليزي | المعنى العربي).\n\n"
+        "أرسل لي أي نص أو شيت طبي الآن لنبدأ!"
     )
     await update.message.reply_text(welcome_text)
 
-async def handle_document_or_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text_content = ""
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text_content = update.message.text
     
-    # إذا قام المستخدم بإرسال ملف
-    if update.message.document:
-        document = update.message.document
-        file = await context.bot.get_file(document.file_id)
-        file_bytes = await file.download_as_bytearray()
-        try:
-            text_content = file_bytes.decode('utf-8')
-        except Exception:
-            text_content = "عذراً، لم أتمكن من قراءة ترميز الملف، يفضل إرسال ملفات نصية (.txt)."
-    else:
-        # إذا كان نصاً مرسلاً مباشرة
-        text_content = update.message.text
+    # استخراج الكلمات الفريدة من النص
+    words = re.findall(r'\b[A-Za-z]{3,}\b', text_content)
+    unique_words = list(set([w.lower() for w in words]))
 
-    await update.message.reply_text(f"📄 **النص المستخرج:**\n\n{text_content[:1500]}...\n\nجاري تحليل المصطلحات الطبية بدقة... 🔍")
+    if not unique_words:
+        await update.message.reply_text("لم ألاحظ كلمات إنجليزية واضحة في النص.")
+        return
 
-    # استخراج الكلمات وفلترة المصطلحات الطبية
-    words = re.findall(r'\b[A-Za-z]{4,}\b', text_content)
-    medical_found = [w for w in set(words) if is_medical_term(w)]
-
-    if not medical_found:
-        # إذا لم يجد مصطلحات بـ البوادئ، نقترح أمثلة تجريبية أو كلمات إنجليزية بارزة
-        medical_found = ["cardiology", "gastroenteritis", "neurology"]
-
-    # إنشاء أزرار تفاعلية للمصطلحات المكتشفة
+    # بناء أزرار لكل كلمة تم العثور عليها في النص
     keyboard = []
-    for term in medical_found[:10]:  # عرض أول 10 مصطلحات لتجنب الازدحام
-        keyboard.append([InlineKeyboardButton(f"📌 حفظ: {term}", callback_data=f"save_{term}")])
+    for word in unique_words[:15]:  # عرض حتى 15 كلمة لترتيب الأزرار
+        if is_medical_term(word) or word in DICTIONARY:
+            btn_text = f"🩺 مصطلح: {word}" if is_medical_term(word) else f"📖 ترجمة: {word}"
+            keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"word_{word}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "✨ **تم استخراج المصطلحات الطبية التالية:**\nاضغط على المصطلح لتخزينه في قائمة الاستذكار (Flashcards):",
+        f"🔍 **تم تحليل النص بنجاح!**\nاضغط على أي كلمة أدناه لمعرفة ترجمتها أو تفاصيلها الطبية:",
         reply_markup=reply_markup
     )
 
@@ -83,42 +76,57 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if data.startswith("save_"):
-        term = data.replace("save_", "").lower()
+    if data.startswith("word_"):
+        word = data.replace("word_", "")
+        
+        # التحقق مما إذا كانت مصطلحاً طبياً
+        if is_medical_term(word) or (word in DICTIONARY and DICTIONARY[word]["type"] == "medical"):
+            info = DICTIONARY.get(word, {
+                "latin": word.capitalize(),
+                "en": f"Medical term related to {word}.",
+                "ar": f"مصطلح طبي تخصصي: {word}"
+            })
+            
+            save_keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⭐ حفظ في قائمة الاستذكار (Flashcards)", callback_data=f"save_{word}")]
+            ])
+            
+            msg = (
+                f"📌 **بطاقة المصطلح الطبي:**\n\n"
+                f"🔹 **الوجه الأول (المصطلح اللاتيني/الطبي):** `{info.get('latin', word.capitalize())}`\n"
+                f"🔸 **الوجه الثاني (الإنجليزي):** {info.get('en', 'N/A')}\n"
+                f"🔸 **الوجه الثاني (العربي):** {info.get('ar', 'N/A')}"
+            )
+            await query.message.reply_text(msg, reply_markup=save_keyboard)
+        else:
+            # كلمة إنجليزية عامة
+            general_info = DICTIONARY.get(word, {"ar": f"معنى إضافي للكلمة: {word}"})
+            await query.message.reply_text(f"📖 **ترجمة الكلمة (`{word}`):**\n{general_info['ar']}")
+            
+    elif data.startswith("save_"):
+        word = data.replace("save_", "")
         user_id = query.from_user.id
         
         if user_id not in user_flashcards:
             user_flashcards[user_id] = []
             
-        # جلب المعنى أو وضع تعريف افتراضي علمي
-        info = MEDICAL_DICTIONARY.get(term, {
-            "en": f"Medical term related to {term}.",
-            "ar": f"مصطلح طبي متعلق بـ {term}"
+        info = DICTIONARY.get(word, {
+            "latin": word.capitalize(),
+            "en": f"Medical term: {word}",
+            "ar": f"مصطلح طبي: {word}"
         })
         
-        card = {
-            "term": term,
-            "definition_en": info["en"],
-            "definition_ar": info["ar"]
-        }
-        
+        card = {"term": info.get("latin", word), "en": info.get("en", ""), "ar": info.get("ar", "")}
         if card not in user_flashcards[user_id]:
             user_flashcards[user_id].append(card)
             
-        response_msg = (
-            "✅ **تمت الإضافة إلى قائمة الاستذكار بنجاح!**\n\n"
-            f"🔹 **الوجه الأول (المصطلح الطبي):** `{card['term']}`\n"
-            f"🔸 الوجه الثاني (الإنجليزي):\n"
-            f"🔸 الوجه الثاني (العربي):"
-        )
-        await query.message.reply_text(response_msg)
+        await query.message.reply_text("✅ **تمت إضافة المصطلح إلى بطاقات الاستذكار الخاصة بك بنجاح!**")
 
 def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_document_or_text))
-    application.add_handler(MessageHandler(filters.Document.ALL, handle_document_or_text))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     application.add_handler(CallbackQueryHandler(button_callback))
 
     print("Bot is running...")
