@@ -142,7 +142,6 @@ async def review_flashcards(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
-    # دمج بطاقات المستخدم مع القاموس العالمي لتوفير بنك أسئلة ضخم للاختبار
     all_pool = list(GLOBAL_MEDICAL_DICT.items())
     if user_id in user_flashcards:
         for c in user_flashcards[user_id]:
@@ -152,22 +151,21 @@ async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ يلزم وجود 4 مصطلحات على الأقل لبدء اختبار الاختيار من متعدد. تصفح بعض الشيتات أولاً.")
         return
         
-    # اختيار سؤال عشوائي
     correct_item = random.choice(all_pool)
     correct_term = correct_item[0]
     correct_def = correct_item[1]['ar']
     
-    # اختيار 3 إجابات خاطئة عشوائية
+    # حفظ الإجابة الصحيحة في سياق المستخدم لنتمكن من عرضها عند الخطأ
+    context.user_data['current_correct_def'] = correct_def
+    
     wrong_pool = [item[1]['ar'] for item in all_pool if item[0] != correct_term]
     wrong_choices = random.sample(wrong_pool, min(3, len(wrong_pool)))
     
     choices = wrong_choices + [correct_def]
     random.shuffle(choices)
     
-    # بناء الأزرار للاختيارات
     keyboard = []
     for choice in choices:
-        # وضع علامة مميزة للإجابة الصحيحة في البيانات المشفرة للزر
         is_correct = "1" if choice == correct_def else "0"
         keyboard.append([InlineKeyboardButton(choice, callback_data=f"q_{is_correct}")])
         
@@ -236,11 +234,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     elif data.startswith("q_"):
         status = data.replace("q_", "")
+        correct_answer = context.user_data.get('current_correct_def', 'غير متوفرة')
         await query.edit_message_reply_markup(reply_markup=None)
+        
         if status == "1":
             await query.message.reply_text("✅ **إجابة صحيحة بامتياز يا دكتور! كفو 🩺🚀**\n\nأرسل `/quiz` لاختبار آخر.")
         else:
-            await query.message.reply_text("❌ **إجابة خاطئة، حاول مرة أخرى!**\n\nأرسل `/quiz` لسؤال جديد.")
+            await query.message.reply_text(
+                f"❌ **إجابة خاطئة!**\n\n"
+                f"💡 **الإجابة الصحيحة هي:** `{correct_answer}`\n\n"
+                f"أرسل `/quiz` لسؤال جديد ومحاولة أخرى."
+            )
 
 def main():
     application = Application.builder().token(TOKEN).build()
