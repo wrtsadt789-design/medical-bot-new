@@ -2,32 +2,9 @@ import os
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from deep_translator import GoogleTranslator
 
 TOKEN = "8750644059:AAEA-loCMcUkGH_EU-Zd334E7NikGI0KOfs"
-
-# قاموس شامل ومباشر للترجمة الفورية
-DIRECT_DICT = {
-    "cardiovascular": "قلبي وعائي (الجهاز القلبي الوعائي)",
-    "system": "جهاز / نظام",
-    "comprises": "يتكون من / يشتمل على",
-    "heart": "القلب",
-    "blood": "الدم",
-    "vessels": "الأوعية",
-    "cardiology": "علم القلب",
-    "medical": "طبي",
-    "sternum": "عظمة القص",
-    "days": "أيام",
-    "early": "مبكر / مبكراً",
-    "studying": "الدراسة",
-    "night": "الليل",
-    "drinking": "شرب",
-    "coffee": "قهوة",
-    "sleeping": "النوم",
-    "reading": "قراءة",
-    "books": "كتب",
-    "improved": "تحسنت",
-    "concentration": "التركيز"
-}
 
 # تخزين البطاقات والنصوص لكل مستخدم
 user_flashcards = {}
@@ -35,7 +12,7 @@ user_last_texts = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "مرحباً يا دكتور! 🩺\nأرسل الشيت لنبدأ القراءة المباشرة والترجمة الفورية.",
+        "مرحباً يا دكتور! 🩺\nأرسل الشيت لنبدأ القراءة المباشرة والترجمة الفورية لأي مصطلح أو كلمة لاتينية.",
         parse_mode="Markdown"
     )
 
@@ -61,7 +38,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     words = re.findall(r'\b[A-Za-z]{3,}\b', text_content)
     
     if not words:
-        await update.message.reply_text("لم ألاحظ كلمات إنجليزية واضحة.")
+        await update.message.reply_text("لم ألاحظ كلمات إنجليزية أو لاتينية واضحة.")
         return
 
     chunk_size = 30
@@ -108,10 +85,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if data.startswith("w_"):
         word = data.replace("w_", "")
-        word_lower = word.lower()
         
-        # جلب الترجمة المباشرة أو إعطاء معنى تقديري نظيف بدون حشو
-        translation = DIRECT_DICT.get(word_lower, f"مصطلح تخصصي ({word})")
+        # ترجمة فورية تلقائية لأي كلمة (لاتينية أو إنجليزية) باستخدام Google Translator
+        try:
+            translation = GoogleTranslator(source='auto', target='ar').translate(word)
+            if not translation:
+                translation = "مصطلح تخصصي"
+        except Exception:
+            translation = "مصطلح تخصصي"
         
         # حفظ الترجمة مؤقتاً للزر
         context.user_data[f'trans_{word}'] = translation
